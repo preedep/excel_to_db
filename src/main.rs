@@ -94,7 +94,7 @@ fn import_database(
             ":count": &row.count,
             ":max_response_time_95_ms": &row.max_response_time_95_ms,
             ":min_response_time_95_ms": &row.min_response_time_95_ms
-        }).map(|ret|{
+        }).map(|ret| {
             debug!("Insert excel row: {:?}", ret);
         })?
     }
