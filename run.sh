@@ -1,0 +1,1 @@
+RUST_LOG=info cargo run -- -f demo.xlsx -s Sheet1
