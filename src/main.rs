@@ -1,11 +1,11 @@
-use std::io;
-
 use calamine::{open_workbook, Reader, Xlsx};
 use clap::Parser;
 use log::{debug, error, info};
 use prettytable::{Cell, Row, Table};
 use rusqlite::{Connection, named_params};
 use rusqlite::types::Value;
+use rustyline::DefaultEditor;
+use rustyline::error::ReadlineError;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -112,6 +112,39 @@ fn main() {
     let cli = Cli::parse();
 
     let mut connection = Connection::open_in_memory().unwrap();
+    create_table(&cli, &mut connection);
+
+    let mut rl = DefaultEditor::new().unwrap();
+    #[cfg(feature = "with-file-history")]
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
+    }
+    loop {
+        let readline = rl.readline("[SQL] >> ");
+        match readline {
+            Ok(mut line) => {
+                rl.add_history_entry(line.as_str()).expect("add history entry error");
+                query_statement_and_display(&mut connection, &mut line);
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+    #[cfg(feature = "with-file-history")]
+    rl.save_history("history.txt");
+}
+
+fn create_table(cli: &Cli, mut connection: &mut Connection) {
     let res = connection.execute(
         "
         CREATE TABLE excel_rows (
@@ -141,13 +174,6 @@ fn main() {
             }
         }
         Err(e) => error!("Create Table Error: {}", e),
-    }
-    let mut line = String::new();
-    loop {
-        println!("Please enter query statement > ");
-        io::stdin().read_line(&mut line).unwrap();
-        query_statement_and_display(&mut connection, &mut line);
-        line.clear();
     }
 }
 
