@@ -3,6 +3,7 @@ use std::io;
 use calamine::{open_workbook, Reader, Xlsx};
 use clap::Parser;
 use log::{debug, error, info};
+use prettytable::{Cell, Row, Table};
 use rusqlite::{Connection, named_params};
 use serde::Deserialize;
 
@@ -144,13 +145,21 @@ fn main() {
     loop {
         println!("Please enter query statement > ");
         io::stdin().read_line(&mut line).unwrap();
-        let mut stmt = connection.prepare(&line);
-        match stmt {
-            Ok(mut smt) => {
-                let mut rows = smt.query([]).unwrap();
-                while let Some(row) = rows.next().unwrap() {
-                    println!("row: {:?}", row);
+        let mut statement = connection.prepare(&line);
+        match statement {
+            Ok(ref mut smt) => {
+                let mut column_names = Vec::new();
+                for column in smt.column_names() {
+                    column_names.push(Cell::new(column));
                 }
+                let mut rows = smt.query([]).unwrap();
+                let mut table = Table::new();
+                table.add_row(Row::new(column_names));
+                while let Some(row) = rows.next().unwrap() {
+                    //println!("row: {:?}", row);
+                    let mut cells : Vec<Cell> = Vec::new();
+                }
+                table.printstd();
             }
             Err(e) => {
                 error!("Statement error: {}", e);
