@@ -96,9 +96,10 @@ fn import_database(
             ":count": &row.count,
             ":max_response_time_95_ms": &row.max_response_time_95_ms,
             ":min_response_time_95_ms": &row.min_response_time_95_ms
-        }).map(|ret| {
-            debug!("Insert excel row: {:?}", ret);
-        })?
+        })
+            .map(|ret| {
+                debug!("Insert excel row: {:?}", ret);
+            })?
     }
     let elapsed = now.elapsed();
     info!("Import data Elapsed: {:.2?}", elapsed);
@@ -145,56 +146,50 @@ fn main() {
     loop {
         println!("Please enter query statement > ");
         io::stdin().read_line(&mut line).unwrap();
-        let mut statement = connection.prepare(&line);
-        match statement {
-            Ok(ref mut smt) => {
-                let mut column_names = Vec::new();
-                for column in smt.column_names() {
-                    column_names.push(Cell::new(column));
-                }
-                let mut rows = smt.query([]).unwrap();
-                let mut table = Table::new();
-                table.add_row(Row::new(column_names.clone()));
-                while let Some(row) = rows.next().unwrap() {
-                    //println!("row: {:?}", row);
-                    let mut cells : Vec<Cell> = Vec::new();
-                    for i in 0..column_names.clone().len() {
-                        let ret = row.get::<usize,Value>(i);
-                        let ret = match ret {
-                            Ok(ret) => {
-                                let x = match ret {
-                                    Value::Null => {
-                                        Cell::new("NULL")
-                                    },
-                                    Value::Integer(i) => {
-                                        Cell::new(i.to_string().as_str())
-                                    },
-                                    Value::Real(r) => {
-                                        Cell::new(r.to_string().as_str())
-                                    },
-                                    Value::Text(t) => {
-                                        Cell::new(t.as_str())
-                                    },
-                                    Value::Blob(b) => {
-                                        Cell::new("BLOB")
-                                    },
-                                };
-                                cells.push(x);
-                            },
-                            Err(e) => {
-                                error!("Get value error: {}", e);
-                                continue;
-                            }
-                        };
-                    }
-                    table.add_row(Row::new(cells));
-                }
-                table.printstd();
-            }
-            Err(e) => {
-                error!("Statement error: {}", e);
-            }
-        }
+        query_statement_and_display(&mut connection, &mut line);
         line.clear();
+    }
+}
+
+fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
+    let mut statement = connection.prepare(&line);
+    match statement {
+        Ok(ref mut smt) => {
+            let mut column_names = Vec::new();
+            for column in smt.column_names() {
+                column_names.push(Cell::new(column));
+            }
+            let mut rows = smt.query([]).unwrap();
+            let mut table = Table::new();
+            table.add_row(Row::new(column_names.clone()));
+            while let Some(row) = rows.next().unwrap() {
+                //println!("row: {:?}", row);
+                let mut cells: Vec<Cell> = Vec::new();
+                for i in 0..column_names.clone().len() {
+                    let ret = row.get::<usize, Value>(i);
+                    let ret = match ret {
+                        Ok(ret) => {
+                            let x = match ret {
+                                Value::Null => Cell::new("NULL"),
+                                Value::Integer(i) => Cell::new(i.to_string().as_str()),
+                                Value::Real(r) => Cell::new(r.to_string().as_str()),
+                                Value::Text(t) => Cell::new(t.as_str()),
+                                Value::Blob(b) => Cell::new("BLOB"),
+                            };
+                            cells.push(x);
+                        }
+                        Err(e) => {
+                            error!("Get value error: {}", e);
+                            continue;
+                        }
+                    };
+                }
+                table.add_row(Row::new(cells));
+            }
+            table.printstd();
+        }
+        Err(e) => {
+            error!("Statement error: {}", e);
+        }
     }
 }
