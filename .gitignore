@@ -17,3 +17,7 @@ Cargo.lock
 # Added by cargo
 
 /target
+/.idea/.gitignore
+/.idea/excel_to_db.iml
+/.idea/modules.xml
+/.idea/vcs.xml
