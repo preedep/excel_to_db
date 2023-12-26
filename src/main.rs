@@ -7,6 +7,7 @@ use rusqlite::types::Value;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use serde::Deserialize;
+use thousands::Separable;
 
 #[derive(Debug, Deserialize)]
 struct ExcelRow {
@@ -219,8 +220,8 @@ fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
                         Ok(ret) => {
                             let x = match ret {
                                 Value::Null => Cell::new("NULL"),
-                                Value::Integer(i) => Cell::new(i.to_string().as_str()),
-                                Value::Real(r) => Cell::new(r.to_string().as_str()),
+                                Value::Integer(i) => Cell::new(i.separate_with_commas().as_str()),
+                                Value::Real(r) => Cell::new(r.separate_with_commas().as_str()),
                                 Value::Text(t) => Cell::new(t.as_str()),
                                 Value::Blob(_b) => Cell::new("BLOB"),
                             };
