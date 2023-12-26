@@ -1,4 +1,5 @@
 use calamine::{open_workbook, Reader, Xlsx};
+use clap::Parser;
 use log::{debug, error, info};
 use serde::Deserialize;
 
@@ -11,15 +12,27 @@ struct ExcelRow {
     min_response_time_95_ms: f64,
 }
 
-fn main() {
-    pretty_env_logger::init();
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// The file name of the excel
+    #[arg(short = 'f')]
+    file_name: String,
+    /// The sheet name of the excel
+    #[arg(short = 's')]
+    sheet_name: String,
+}
+
+fn load_excel(file_name:&String,sheet_name: &String) -> Result<Vec<ExcelRow>, calamine::XlsxError> {
+
+    debug!("Loading excel with file name: {} and sheet name: {}",file_name,sheet_name);
 
     use std::time::Instant;
     let now = Instant::now();
-    const WORK_SHEET: &'static str = "Sheet1";
-    let wb: Result<Xlsx<_>, calamine::XlsxError> = open_workbook("demo.xlsx");
+
+    let wb: Result<Xlsx<_>, calamine::XlsxError> = open_workbook(file_name);
     let wb = wb.map(|mut wb|{
-        let res = wb.worksheet_range(WORK_SHEET)
+        let res = wb.worksheet_range(sheet_name)
             .map(|range| {
                 //skip the first row , for header
                 range.rows().skip(1).map(|row| {
@@ -36,5 +49,15 @@ fn main() {
     });
     let elapsed = now.elapsed();
     info!("Load Excel Elapsed: {:.2?}", elapsed);
+
+    wb
+}
+fn main() {
+    pretty_env_logger::init();
+
+    let cli = Cli::parse();
+
+    let excel_rows = load_excel(&cli.file_name,&cli.sheet_name);
+
 
 }
