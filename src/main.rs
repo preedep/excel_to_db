@@ -7,14 +7,18 @@ use rusqlite::types::Value;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use serde::Deserialize;
+use thousands::Separable;
 
 #[derive(Debug, Deserialize)]
 struct ExcelRow {
     service_name: String,
-    average_response_time_95_ms: f64,
-    count: u64,
-    max_response_time_95_ms: f64,
-    min_response_time_95_ms: f64,
+    #[serde(deserialize_with = "de_opt_f64")]
+    average_response_time_95_ms: Option<f64>,
+    count: Option<i64>,
+    #[serde(deserialize_with = "de_opt_f64")]
+    max_response_time_95_ms: Option<f64>,
+    #[serde(deserialize_with = "de_opt_f64")]
+    min_response_time_95_ms: Option<f64>,
 }
 
 #[derive(Parser)]
@@ -26,6 +30,19 @@ struct Cli {
     /// The sheet name of the excel
     #[arg(short = 's')]
     sheet_name: String,
+}
+
+// Convert value cell to Some(f64) if float or int, else None
+fn de_opt_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+{
+    let data_type = calamine::DataType::deserialize(deserializer)?;
+    if let Some(float) = data_type.as_f64() {
+        Ok(Some(float))
+    } else {
+        Ok(None)
+    }
 }
 
 fn load_excel(
@@ -48,11 +65,11 @@ fn load_excel(
                 .rows()
                 .skip(1)
                 .map(|row| ExcelRow {
-                    service_name: row.get(0).unwrap().get_string().unwrap().to_string(),
-                    average_response_time_95_ms: row.get(1).unwrap().get_float().unwrap_or(0.0),
-                    count: row.get(2).unwrap().as_i64().unwrap_or(0) as u64,
-                    max_response_time_95_ms: row.get(3).unwrap().get_float().unwrap_or(0.0),
-                    min_response_time_95_ms: row.get(4).unwrap().get_float().unwrap_or(0.0),
+                    service_name:row.get(0).unwrap().get_string().unwrap().to_string(),
+                    average_response_time_95_ms: Some(row.get(1).unwrap().get_float().unwrap_or(0.0)),
+                    count: Some(row.get(2).unwrap().as_i64().unwrap_or(0)),
+                    max_response_time_95_ms: Some(row.get(3).unwrap().get_float().unwrap_or(0.0)),
+                    min_response_time_95_ms: Some(row.get(4).unwrap().get_float().unwrap_or(0.0)),
                 })
                 .collect::<Vec<ExcelRow>>()
         });
@@ -199,14 +216,14 @@ fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
                 let mut cells: Vec<Cell> = Vec::new();
                 for i in 0..column_names.clone().len() {
                     let ret = row.get::<usize, Value>(i);
-                    let ret = match ret {
+                    let _ret = match ret {
                         Ok(ret) => {
                             let x = match ret {
                                 Value::Null => Cell::new("NULL"),
-                                Value::Integer(i) => Cell::new(i.to_string().as_str()),
-                                Value::Real(r) => Cell::new(r.to_string().as_str()),
+                                Value::Integer(i) => Cell::new(i.separate_with_commas().as_str()),
+                                Value::Real(r) => Cell::new(r.separate_with_commas().as_str()),
                                 Value::Text(t) => Cell::new(t.as_str()),
-                                Value::Blob(b) => Cell::new("BLOB"),
+                                Value::Blob(_b) => Cell::new("BLOB"),
                             };
                             cells.push(x);
                         }
