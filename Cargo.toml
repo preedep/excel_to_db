@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
+
 
 [dependencies]
 calamine = "0.23"
@@ -11,4 +14,4 @@ clap = { version = "4.4", features = ["derive"] }
 log = "0.4"
 pretty_env_logger = "0.5"
 serde = { version ="1.0", features = ["derive"] }
-sqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.30", features = ["bundled"] }
