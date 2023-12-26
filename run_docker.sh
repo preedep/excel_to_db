@@ -1,1 +1,1 @@
-docker run --rm -v /Users/preedee/Project/Rust/excel_to_db:/data/ -it --entrypoint=/app/excel_to_db excel2db:latest -f /data/demo.xlsx -s Sheet1
+docker run --rm -e RUST_LOG=info -v $(pwd):/data/ -it --entrypoint=/app/excel_to_db nickmsft/excel2db:latest -f /data/demo.xlsx -s Sheet1

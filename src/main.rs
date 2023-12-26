@@ -154,6 +154,8 @@ fn create_table(cli: &Cli, mut connection: &mut Connection) {
             max_response_time_95_ms REAL NOT NULL,
             min_response_time_95_ms REAL NOT NULL
         );
+        CREATE UNIQUE INDEX idx_service_name
+        ON excel_rows (service_name);
         ",
         (),
     );
@@ -178,6 +180,10 @@ fn create_table(cli: &Cli, mut connection: &mut Connection) {
 }
 
 fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
+    use std::time::Instant;
+    let now = Instant::now();
+
+
     let mut statement = connection.prepare(&line);
     match statement {
         Ok(ref mut smt) => {
@@ -218,4 +224,6 @@ fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
             error!("Statement error: {}", e);
         }
     }
+    let elapsed = now.elapsed();
+    info!("Query and Display Elapsed: {:.2?}", elapsed);
 }
