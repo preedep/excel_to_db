@@ -5,6 +5,7 @@ use clap::Parser;
 use log::{debug, error, info};
 use prettytable::{Cell, Row, Table};
 use rusqlite::{Connection, named_params};
+use rusqlite::types::Value;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -140,7 +141,6 @@ fn main() {
         }
         Err(e) => error!("Create Table Error: {}", e),
     }
-
     let mut line = String::new();
     loop {
         println!("Please enter query statement > ");
@@ -154,10 +154,40 @@ fn main() {
                 }
                 let mut rows = smt.query([]).unwrap();
                 let mut table = Table::new();
-                table.add_row(Row::new(column_names));
+                table.add_row(Row::new(column_names.clone()));
                 while let Some(row) = rows.next().unwrap() {
                     //println!("row: {:?}", row);
                     let mut cells : Vec<Cell> = Vec::new();
+                    for i in 0..column_names.clone().len() {
+                        let ret = row.get::<usize,Value>(i);
+                        let ret = match ret {
+                            Ok(ret) => {
+                                let x = match ret {
+                                    Value::Null => {
+                                        Cell::new("NULL")
+                                    },
+                                    Value::Integer(i) => {
+                                        Cell::new(i.to_string().as_str())
+                                    },
+                                    Value::Real(r) => {
+                                        Cell::new(r.to_string().as_str())
+                                    },
+                                    Value::Text(t) => {
+                                        Cell::new(t.as_str())
+                                    },
+                                    Value::Blob(b) => {
+                                        Cell::new("BLOB")
+                                    },
+                                };
+                                cells.push(x);
+                            },
+                            Err(e) => {
+                                error!("Get value error: {}", e);
+                                continue;
+                            }
+                        };
+                    }
+                    table.add_row(Row::new(cells));
                 }
                 table.printstd();
             }
