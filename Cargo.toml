@@ -18,3 +18,4 @@ rusqlite = { version = "0.30", features = ["bundled"] }
 prettytable-rs = "0.10"
 rustyline = "13.0"
 thousands = "0.2"
+csv = "1.3.0"
