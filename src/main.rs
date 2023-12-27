@@ -1,5 +1,6 @@
 use calamine::{open_workbook, Reader, Xlsx};
 use clap::Parser;
+use csv::Writer;
 use log::{debug, error, info};
 use prettytable::{Cell, Row, Table};
 use rusqlite::{Connection, named_params};
@@ -65,8 +66,10 @@ fn load_excel(
                 .rows()
                 .skip(1)
                 .map(|row| ExcelRow {
-                    service_name:row.get(0).unwrap().get_string().unwrap().to_string(),
-                    average_response_time_95_ms: Some(row.get(1).unwrap().get_float().unwrap_or(0.0)),
+                    service_name: row.get(0).unwrap().get_string().unwrap().to_string(),
+                    average_response_time_95_ms: Some(
+                        row.get(1).unwrap().get_float().unwrap_or(0.0),
+                    ),
                     count: Some(row.get(2).unwrap().as_i64().unwrap_or(0)),
                     max_response_time_95_ms: Some(row.get(3).unwrap().get_float().unwrap_or(0.0)),
                     min_response_time_95_ms: Some(row.get(4).unwrap().get_float().unwrap_or(0.0)),
@@ -140,8 +143,20 @@ fn main() {
         let readline = rl.readline("[SQL] >> ");
         match readline {
             Ok(mut line) => {
-                rl.add_history_entry(line.as_str()).expect("add history entry error");
-                query_statement_and_display(&mut connection, &mut line);
+                rl.add_history_entry(line.as_str())
+                    .expect("add history entry error");
+                let export_cli = line.clone();
+                let export_cli = export_cli.split("|out=").last();
+                if let Some(export) = export_cli {
+                    info!("Require export: with parameter {}", export);
+                    let mut line = line.replace("|out", "");
+                    query_statement_and_display(&mut connection,
+                                                &mut line, Some(export.to_string()));
+                } else {
+                    query_statement_and_display(&mut connection,
+                                                &mut line,
+                                                None);
+                }
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
@@ -196,18 +211,27 @@ fn create_table(cli: &Cli, mut connection: &mut Connection) {
     }
 }
 
-fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
+fn query_statement_and_display(connection: &mut Connection,
+                               line: &mut String,
+                               exported_file_name: Option<String>) {
     use std::time::Instant;
     let now = Instant::now();
-
 
     let mut statement = connection.prepare(&line);
     match statement {
         Ok(ref mut smt) => {
-            let mut column_names = Vec::new();
-            for column in smt.column_names() {
+            let mut column_names: Vec<Cell> = Vec::new();
+            //let mut datas : Vec<Vec<&str>> = Vec::new();
+            //let mut row_columns: Vec<&str> = Vec::new();
+
+            let columns = smt.column_names();
+            for column in columns {
                 column_names.push(Cell::new(column));
+                //if exported_file_name.is_some() {
+                //    row_columns.push(column.clone());
+                //}
             }
+
             let mut rows = smt.query([]).unwrap();
             let mut table = Table::new();
             table.add_row(Row::new(column_names.clone()));
@@ -236,6 +260,30 @@ fn query_statement_and_display(connection: &mut Connection, line: &mut String) {
                 table.add_row(Row::new(cells));
             }
             table.printstd();
+
+            // Create csv writer
+            //let mut writer : Option<Writer<File>> = None;
+            if let Some(file) = exported_file_name {
+                let wtr = Writer::from_path(file.clone());
+                match wtr {
+                    Ok(mut wtr) => {
+                        for i in 0..table.len() {
+                            if let Some(row_item) = table.get_row(i) {
+                                let mut row_columns: Vec<String> = Vec::new();
+                                row_item.iter().for_each(|cell| {
+                                    let cell_value = cell.get_content();
+                                    row_columns.push(cell_value.replace(",", ""));
+                                });
+                                wtr.write_record(row_columns).expect("write record error");
+                            }
+                        }
+                        info!("Export csv successfully at file {}", file.clone());
+                    }
+                    Err(e) => {
+                        error!("Create csv writer error: {}", e);
+                    }
+                }
+            }
         }
         Err(e) => {
             error!("Statement error: {}", e);
